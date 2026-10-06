@@ -1575,8 +1575,8 @@ body.player-open .btn-back-to-top {
 </footer>
 
 <script>
-// Hero Synapse/Circuit Background
-(function initHeroCircuit() {
+// Hero Pulse Trace Background — soul (heartbeat) meets électrique (voltage)
+(function initHeroPulse() {
   const canvas = document.getElementById('hero-wave');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -1584,49 +1584,39 @@ body.player-open .btn-back-to-top {
   let w = 0, h = 0;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-  const NODE_COUNT = 22;
-  const MAX_LINKS_PER_NODE = 3;
-  const COLORS = ['4,156,138', '216,27,96']; // cyan, magenta
+  // One repeating cycle: gentle breathing baseline (soul) -> sharp heartbeat
+  // spike (P-QRS-T) -> baseline -> jagged voltage burst (électrique) -> baseline.
+  // Starts and ends at y:0 so it loops seamlessly.
+  const KEY = [
+    { u: 0,   y: 0  }, { u: 14,  y: 3  }, { u: 28,  y: -2 }, { u: 42,  y: 4  },
+    { u: 56,  y: -3 }, { u: 70,  y: 2  }, { u: 84,  y: 0  },
+    { u: 92,  y: -5 }, { u: 98,  y: 4  }, { u: 101, y: -34 }, { u: 104, y: 44 },
+    { u: 107, y: -13 }, { u: 114, y: 7 }, { u: 122, y: 0 },
+    { u: 140, y: 2  }, { u: 155, y: -3 }, { u: 170, y: 1 }, { u: 182, y: 0 },
+    { u: 188, y: 24 }, { u: 193, y: -20 }, { u: 198, y: 28 }, { u: 203, y: -16 },
+    { u: 208, y: 13 }, { u: 213, y: -7 }, { u: 219, y: 0 },
+    { u: 236, y: 3  }, { u: 252, y: -2 }, { u: 268, y: 0 }
+  ];
+  const PATTERN_LEN = 268;
 
-  let nodes = [];
-  let links = [];
-
-  const rand = (min, max) => min + Math.random() * (max - min);
-
-  function buildNetwork() {
-    nodes = [];
-    for (let i = 0; i < NODE_COUNT; i++) {
-      nodes.push({
-        x: rand(0.05, 0.95) * w,
-        y: rand(0.08, 0.92) * h,
-        r: rand(1.6, 3.2),
-        pulsePhase: rand(0, Math.PI * 2),
-        pulseSpeed: rand(0.015, 0.03),
-        color: COLORS[i % 2]
-      });
+  function shapeAt(u) {
+    u = ((u % PATTERN_LEN) + PATTERN_LEN) % PATTERN_LEN;
+    for (let i = 0; i < KEY.length - 1; i++) {
+      const a = KEY[i], b = KEY[i + 1];
+      if (u >= a.u && u <= b.u) {
+        const p = (u - a.u) / (b.u - a.u);
+        return a.y + (b.y - a.y) * p;
+      }
     }
-    const linkSet = new Set();
-    links = [];
-    nodes.forEach((n, i) => {
-      const nearest = nodes
-        .map((m, j) => ({ j, d: j === i ? Infinity : Math.hypot(n.x - m.x, n.y - m.y) }))
-        .sort((a, b) => a.d - b.d)
-        .slice(0, MAX_LINKS_PER_NODE);
-      nearest.forEach(({ j, d }) => {
-        if (d > Math.max(w, h) * 0.35) return;
-        const key = i < j ? i + '-' + j : j + '-' + i;
-        if (linkSet.has(key)) return;
-        linkSet.add(key);
-        links.push({
-          a: i, b: j,
-          color: COLORS[(i + j) % 2],
-          speed: rand(0.003, 0.007),
-          offset: rand(0, 1),
-          active: Math.random() < 0.7
-        });
-      });
-    });
+    return 0;
   }
+
+  const TRACES = [
+    { yPct: .30, px: 2.6, color: '4,156,138', width: 1.6, alpha: .22, speed: .55, ampScale: 1 },
+    { yPct: .55, px: 2.6, color: '216,27,96', width: 1.4, alpha: .16, speed: -.4, ampScale: .8 },
+    { yPct: .78, px: 2.6, color: '10,10,10',  width: 1.1, alpha: .07, speed: .32, ampScale: .65 }
+  ];
+  const offsets = TRACES.map((_, i) => i * PATTERN_LEN * 0.37);
 
   const resize = () => {
     const rect = canvas.parentElement.getBoundingClientRect();
@@ -1634,7 +1624,6 @@ body.player-open .btn-back-to-top {
     canvas.width = w * dpr; canvas.height = h * dpr;
     canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    buildNetwork();
   };
   resize();
   window.addEventListener('resize', resize);
@@ -1642,36 +1631,22 @@ body.player-open .btn-back-to-top {
   let t = 0;
   const draw = () => {
     ctx.clearRect(0, 0, w, h);
+    const ampBase = Math.min(h * 0.11, 46);
 
-    links.forEach(link => {
-      const a = nodes[link.a], b = nodes[link.b];
+    TRACES.forEach((tr, i) => {
+      const baseY = h * tr.yPct;
+      const scroll = t * tr.speed + offsets[i];
       ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.strokeStyle = 'rgba(10,10,10,0.05)';
-      ctx.lineWidth = 1;
+      const step = Math.max(2, w / 420);
+      for (let x = 0; x <= w + step; x += step) {
+        const u = (x + scroll) / tr.px;
+        const y = baseY - shapeAt(u) * (ampBase * tr.ampScale) / 44;
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = 'rgba(' + tr.color + ',' + tr.alpha + ')';
+      ctx.lineWidth = tr.width;
+      ctx.lineJoin = 'round';
       ctx.stroke();
-    });
-
-    links.forEach(link => {
-      if (!link.active) return;
-      const a = nodes[link.a], b = nodes[link.b];
-      const p = (t * link.speed + link.offset) % 1;
-      const px = a.x + (b.x - a.x) * p;
-      const py = a.y + (b.y - a.y) * p;
-      const fade = Math.sin(p * Math.PI);
-      ctx.beginPath();
-      ctx.arc(px, py, 2.2, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(' + link.color + ',' + (0.5 * fade) + ')';
-      ctx.fill();
-    });
-
-    nodes.forEach(n => {
-      const pulse = 0.5 + 0.5 * Math.sin(t * n.pulseSpeed + n.pulsePhase);
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, n.r + pulse * 1.2, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(' + n.color + ',' + (0.12 + pulse * 0.18) + ')';
-      ctx.fill();
     });
 
     if (!reduced) {
@@ -1679,7 +1654,7 @@ body.player-open .btn-back-to-top {
       requestAnimationFrame(draw);
     }
   };
-  if (reduced) t = 40;
+  if (reduced) t = 90;
   draw();
 })();
 
