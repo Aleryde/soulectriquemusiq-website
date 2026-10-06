@@ -1575,8 +1575,8 @@ body.player-open .btn-back-to-top {
 </footer>
 
 <script>
-// Hero Oscilloscope Background — a real, irregular audio waveform
-(function initHeroScope() {
+// Hero Wave Background — LOA-style drifting big wave, raw noise riding on top
+(function initHeroWave() {
   const canvas = document.getElementById('hero-wave');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -1584,24 +1584,18 @@ body.player-open .btn-back-to-top {
   let w = 0, h = 0;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-  // Additive sum of harmonics at decaying amplitude, like a captured audio
-  // signal — jagged and irregular, not a single smooth sine.
-  function shapeAt(u) {
-    return (
-      Math.sin(u * 0.025) * 1.00 +
-      Math.sin(u * 0.071 + 1.3) * 0.55 +
-      Math.sin(u * 0.163 + 2.7) * 0.35 +
-      Math.sin(u * 0.37  + 0.6) * 0.22 +
-      Math.sin(u * 0.91  + 4.1) * 0.13 +
-      Math.sin(u * 2.3   + 1.1) * 0.06
-    );
+  const NOISE_LEN = 360;
+  function makeNoise() {
+    const n = [];
+    for (let i = 0; i < NOISE_LEN; i++) n.push(Math.random() * 2 - 1);
+    return n;
   }
-
-  const TRACES = [
-    { yPct: .28, px: 2.2, color: '4,156,138', width: 1.5, alpha: .24, speed: .9,  ampScale: 1,   phase: 0 },
-    { yPct: .55, px: 2.2, color: '216,27,96', width: 1.3, alpha: .17, speed: -.7, ampScale: .75, phase: 120 },
-    { yPct: .80, px: 2.2, color: '10,10,10',  width: 1,   alpha: .07, speed: .55, ampScale: .55, phase: 260 }
-  ];
+  // Raw, unsmoothed sample — nearest-neighbor lookup (no interpolation)
+  // gives sharp jagged steps instead of a smooth curve.
+  function noiseAt(noise, u) {
+    const i = Math.floor(((u % NOISE_LEN) + NOISE_LEN) % NOISE_LEN);
+    return noise[i];
+  }
 
   const resize = () => {
     const rect = canvas.parentElement.getBoundingClientRect();
@@ -1613,33 +1607,38 @@ body.player-open .btn-back-to-top {
   resize();
   window.addEventListener('resize', resize);
 
+  const layers = [
+    { amp: .11, freq: 1.3, speed: .016, phase: 0,   jitter: .045, jScale: 90,  jSpeed: .06, color: '10,10,10',  width: 1.2, alpha: .06, noise: makeNoise() },
+    { amp: .15, freq: 0.9, speed: .011, phase: 1.4, jitter: .065, jScale: 70,  jSpeed: .09, color: '4,156,138', width: 1.6, alpha: .22, noise: makeNoise() },
+    { amp: .09, freq: 1.8, speed: .021, phase: 3.1, jitter: .055, jScale: 110, jSpeed: .07, color: '216,27,96', width: 1.1, alpha: .16, noise: makeNoise() },
+    { amp: .18, freq: 0.6, speed: .008, phase: 4.6, jitter: .035, jScale: 60,  jSpeed: .05, color: '10,10,10',  width: 1.4, alpha: .05, noise: makeNoise() },
+    { amp: .07, freq: 2.4, speed: .026, phase: 2.2, jitter: .06,  jScale: 130, jSpeed: .1,  color: '4,156,138', width: 1,   alpha: .11, noise: makeNoise() }
+  ];
+
   let t = 0;
   const draw = () => {
     ctx.clearRect(0, 0, w, h);
-    const ampBase = Math.min(h * 0.1, 40);
-
-    TRACES.forEach(tr => {
-      const baseY = h * tr.yPct;
-      const scroll = t * tr.speed + tr.phase;
+    const midY = h * 0.5;
+    layers.forEach(l => {
       ctx.beginPath();
-      const step = Math.max(2, w / 460);
+      const step = Math.max(2, w / 480);
       for (let x = 0; x <= w + step; x += step) {
-        const u = (x + scroll) / tr.px;
-        const y = baseY - shapeAt(u) * ampBase * tr.ampScale;
+        const nx = x / w;
+        const bigWave = Math.sin(nx * Math.PI * 2 * l.freq + t * l.speed + l.phase) * l.amp * h;
+        const jitter = noiseAt(l.noise, nx * l.jScale + t * l.jSpeed) * l.jitter * h;
+        const y = midY + bigWave + jitter;
         if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
-      ctx.strokeStyle = 'rgba(' + tr.color + ',' + tr.alpha + ')';
-      ctx.lineWidth = tr.width;
-      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(' + l.color + ',' + l.alpha + ')';
+      ctx.lineWidth = l.width;
       ctx.stroke();
     });
-
     if (!reduced) {
       t += 1;
       requestAnimationFrame(draw);
     }
   };
-  if (reduced) t = 90;
+  if (reduced) t = 40;
   draw();
 })();
 
