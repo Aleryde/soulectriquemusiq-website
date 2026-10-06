@@ -523,7 +523,8 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ---------- SECTION generic ---------- */
-section { position: relative; padding: 150px 0 100px; }
+section { position: relative; padding: 56px 0 40px; }
+section.wrap { padding-top: 56px; padding-bottom: 40px; }
 .section-head { margin-bottom: 48px; }
 .eyebrow { font-family: var(--ff-mono); font-size: 12px; letter-spacing: .24em; color: var(--ink); margin-bottom: 14px; display: block; font-weight: 600; }
 h2 { font-family: var(--ff-display); font-weight: 700; font-size: clamp(28px, 4vw, 44px); letter-spacing: -.01em; color: var(--ink); }
@@ -671,7 +672,7 @@ h2 { font-family: var(--ff-display); font-weight: 700; font-size: clamp(28px, 4v
 
 /* ---------- CONTACT SECTION ---------- */
 #contact { background: var(--bg-panel); }
-#contact .wrap { padding-top: 80px; padding-bottom: 80px; }
+#contact .wrap { padding-top: 24px; padding-bottom: 24px; }
 .contact-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: start;
 }
@@ -998,7 +999,6 @@ body.player-open .btn-back-to-top {
 <section id="catalog" class="wrap">
   <div class="section-head reveal">
     <span class="eyebrow">02 — CATALOG</span>
-    <h2>SLQ001 → SLQ023</h2>
   </div>
 
   <div class="catalog-controls reveal reveal-delay-1">
