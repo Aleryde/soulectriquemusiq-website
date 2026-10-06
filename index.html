@@ -432,6 +432,12 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   padding: 130px 24px 80px;
   overflow: hidden;
 }
+#hero-wave {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  z-index: -1;
+  pointer-events: none;
+}
 .hero-glow {
   position: absolute;
   width: 80vw; height: 80vw; max-width: 1000px; max-height: 1000px;
@@ -465,7 +471,11 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 }
 .hero-lockup {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px;
-  opacity: 0; animation: fadeUp .9s ease forwards .3s;
+  opacity: 0; animation: fadeUp .9s ease forwards .3s, logoFloat 9s ease-in-out 1.2s infinite;
+}
+@keyframes logoFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
 }
 .hero-lockup img.icon {
   height: clamp(120px, 18vw, 192px);
@@ -946,6 +956,7 @@ body.player-open .btn-back-to-top {
 </div>
 
 <header class="hero">
+  <canvas id="hero-wave" aria-hidden="true"></canvas>
   <div class="hero-glow" aria-hidden="true"></div>
   <div class="hero-glow-2" aria-hidden="true"></div>
   <div class="hero-lockup">
@@ -1564,6 +1575,59 @@ body.player-open .btn-back-to-top {
 </footer>
 
 <script>
+// Hero Wave Background
+(function initHeroWave() {
+  const canvas = document.getElementById('hero-wave');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let w = 0, h = 0;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+  const resize = () => {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    w = rect.width; h = rect.height;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  resize();
+  window.addEventListener('resize', resize);
+
+  const layers = [
+    { amp: .10, freq: 1.6, speed: .018, phase: 0,   color: '10,10,10',  width: 1.2, alpha: .06 },
+    { amp: .14, freq: 1.1, speed: .012, phase: 1.4, color: '4,156,138', width: 1.6, alpha: .20 },
+    { amp: .08, freq: 2.3, speed: .024, phase: 3.1, color: '216,27,96', width: 1.1, alpha: .14 },
+    { amp: .17, freq: 0.8, speed: .009, phase: 4.6, color: '10,10,10',  width: 1.4, alpha: .05 },
+    { amp: .06, freq: 3.1, speed: .03,  phase: 2.2, color: '4,156,138', width: 1,   alpha: .10 }
+  ];
+
+  let t = 0;
+  const draw = () => {
+    ctx.clearRect(0, 0, w, h);
+    const midY = h * 0.5;
+    layers.forEach(l => {
+      ctx.beginPath();
+      const step = Math.max(4, w / 220);
+      for (let x = 0; x <= w + step; x += step) {
+        const nx = x / w;
+        const y = midY + Math.sin(nx * Math.PI * 2 * l.freq + t * l.speed + l.phase) * l.amp * h
+                  + Math.sin(nx * Math.PI * 2 * l.freq * 2.3 + t * l.speed * 1.7 + l.phase) * l.amp * h * 0.25;
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = 'rgba(' + l.color + ',' + l.alpha + ')';
+      ctx.lineWidth = l.width;
+      ctx.stroke();
+    });
+    if (!reduced) {
+      t += 1;
+      requestAnimationFrame(draw);
+    }
+  };
+  if (reduced) t = 40;
+  draw();
+})();
+
 // Global State
 let currentReleaseData = null;
 let currentFilter = 'all';
