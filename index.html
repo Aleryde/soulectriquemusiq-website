@@ -1575,8 +1575,8 @@ body.player-open .btn-back-to-top {
 </footer>
 
 <script>
-// Hero Wave Background
-(function initHeroWave() {
+// Hero Synapse/Circuit Background
+(function initHeroCircuit() {
   const canvas = document.getElementById('hero-wave');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -1584,41 +1584,96 @@ body.player-open .btn-back-to-top {
   let w = 0, h = 0;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
+  const NODE_COUNT = 22;
+  const MAX_LINKS_PER_NODE = 3;
+  const COLORS = ['4,156,138', '216,27,96']; // cyan, magenta
+
+  let nodes = [];
+  let links = [];
+
+  const rand = (min, max) => min + Math.random() * (max - min);
+
+  function buildNetwork() {
+    nodes = [];
+    for (let i = 0; i < NODE_COUNT; i++) {
+      nodes.push({
+        x: rand(0.05, 0.95) * w,
+        y: rand(0.08, 0.92) * h,
+        r: rand(1.6, 3.2),
+        pulsePhase: rand(0, Math.PI * 2),
+        pulseSpeed: rand(0.015, 0.03),
+        color: COLORS[i % 2]
+      });
+    }
+    const linkSet = new Set();
+    links = [];
+    nodes.forEach((n, i) => {
+      const nearest = nodes
+        .map((m, j) => ({ j, d: j === i ? Infinity : Math.hypot(n.x - m.x, n.y - m.y) }))
+        .sort((a, b) => a.d - b.d)
+        .slice(0, MAX_LINKS_PER_NODE);
+      nearest.forEach(({ j, d }) => {
+        if (d > Math.max(w, h) * 0.35) return;
+        const key = i < j ? i + '-' + j : j + '-' + i;
+        if (linkSet.has(key)) return;
+        linkSet.add(key);
+        links.push({
+          a: i, b: j,
+          color: COLORS[(i + j) % 2],
+          speed: rand(0.003, 0.007),
+          offset: rand(0, 1),
+          active: Math.random() < 0.7
+        });
+      });
+    });
+  }
+
   const resize = () => {
     const rect = canvas.parentElement.getBoundingClientRect();
     w = rect.width; h = rect.height;
     canvas.width = w * dpr; canvas.height = h * dpr;
     canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    buildNetwork();
   };
   resize();
   window.addEventListener('resize', resize);
 
-  const layers = [
-    { amp: .10, freq: 1.6, speed: .018, phase: 0,   color: '10,10,10',  width: 1.2, alpha: .06 },
-    { amp: .14, freq: 1.1, speed: .012, phase: 1.4, color: '4,156,138', width: 1.6, alpha: .20 },
-    { amp: .08, freq: 2.3, speed: .024, phase: 3.1, color: '216,27,96', width: 1.1, alpha: .14 },
-    { amp: .17, freq: 0.8, speed: .009, phase: 4.6, color: '10,10,10',  width: 1.4, alpha: .05 },
-    { amp: .06, freq: 3.1, speed: .03,  phase: 2.2, color: '4,156,138', width: 1,   alpha: .10 }
-  ];
-
   let t = 0;
   const draw = () => {
     ctx.clearRect(0, 0, w, h);
-    const midY = h * 0.5;
-    layers.forEach(l => {
+
+    links.forEach(link => {
+      const a = nodes[link.a], b = nodes[link.b];
       ctx.beginPath();
-      const step = Math.max(4, w / 220);
-      for (let x = 0; x <= w + step; x += step) {
-        const nx = x / w;
-        const y = midY + Math.sin(nx * Math.PI * 2 * l.freq + t * l.speed + l.phase) * l.amp * h
-                  + Math.sin(nx * Math.PI * 2 * l.freq * 2.3 + t * l.speed * 1.7 + l.phase) * l.amp * h * 0.25;
-        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      }
-      ctx.strokeStyle = 'rgba(' + l.color + ',' + l.alpha + ')';
-      ctx.lineWidth = l.width;
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.strokeStyle = 'rgba(10,10,10,0.05)';
+      ctx.lineWidth = 1;
       ctx.stroke();
     });
+
+    links.forEach(link => {
+      if (!link.active) return;
+      const a = nodes[link.a], b = nodes[link.b];
+      const p = (t * link.speed + link.offset) % 1;
+      const px = a.x + (b.x - a.x) * p;
+      const py = a.y + (b.y - a.y) * p;
+      const fade = Math.sin(p * Math.PI);
+      ctx.beginPath();
+      ctx.arc(px, py, 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(' + link.color + ',' + (0.5 * fade) + ')';
+      ctx.fill();
+    });
+
+    nodes.forEach(n => {
+      const pulse = 0.5 + 0.5 * Math.sin(t * n.pulseSpeed + n.pulsePhase);
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r + pulse * 1.2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(' + n.color + ',' + (0.12 + pulse * 0.18) + ')';
+      ctx.fill();
+    });
+
     if (!reduced) {
       t += 1;
       requestAnimationFrame(draw);
